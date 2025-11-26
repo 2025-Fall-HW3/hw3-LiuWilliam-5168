@@ -120,12 +120,28 @@ class RiskParityPortfolio:
         TODO: Complete Task 2 Below
         """
 
+        """
         volatility = df_returns[assets].rolling(window=self.lookback).std()
         inv_volatility = 1.0 / volatility
 
         total_inv_volatility = inv_volatility.sum(axis=1)
 
         self.portfolio_weights[assets] = inv_volatility.div(total_inv_volatility, axis=0)
+
+        # print(inv_volatility)
+        # print(total_inv_volatility)
+        # print(self.portfolio_weights[assets])
+
+        total_weights = self.portfolio_weights[assets].sum(axis=1)
+
+        print(total_weights)
+        """
+
+        for i in range(len(df_returns)):
+            R_n = df_returns[assets].iloc[max(0, i - self.lookback) : i]
+            inv_volatility = 1.0 / R_n.std()
+            weights = inv_volatility / inv_volatility.sum()
+            self.portfolio_weights.loc[df.index[i], assets] = weights
 
         """
         TODO: Complete Task 2 Above

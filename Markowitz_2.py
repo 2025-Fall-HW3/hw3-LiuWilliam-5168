@@ -71,6 +71,13 @@ class MyPortfolio:
         TODO: Complete Task 4 Below
         """
         
+        df_returns = df.pct_change().fillna(0)
+        volatility = df_returns[assets].rolling(window=self.lookback).std()
+        inv_volatility = 1.0 / volatility
+
+        total_inv_volatility = inv_volatility.sum(axis=1)
+
+        self.portfolio_weights[assets] = inv_volatility.div(total_inv_volatility, axis=0)
         
         """
         TODO: Complete Task 4 Above
