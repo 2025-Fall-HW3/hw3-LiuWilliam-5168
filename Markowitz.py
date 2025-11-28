@@ -104,60 +104,138 @@ Implement a risk parity strategy as dataframe "rp". Please do "not" include SPY.
 """
 
 
-class RiskParityPortfolio:
-    def __init__(self, exclude, lookback=50):
+# class RiskParityPortfolio:
+#     def __init__(self, exclude, lookback=50):
+#         self.exclude = exclude
+#         self.lookback = lookback
+
+#     def calculate_weights(self):
+#         # Get the assets by excluding the specified column
+#         assets = df.columns[df.columns != self.exclude]
+
+#         # Calculate the portfolio weights
+#         self.portfolio_weights = pd.DataFrame(index=df.index, columns=df.columns)
+
+#         """
+#         TODO: Complete Task 2 Below
+#         """
+
+#         """
+#         volatility = df_returns[assets].rolling(window=self.lookback).std()
+#         inv_volatility = 1.0 / volatility
+
+#         total_inv_volatility = inv_volatility.sum(axis=1)
+
+#         self.portfolio_weights[assets] = inv_volatility.div(total_inv_volatility, axis=0)
+
+#         # print(inv_volatility)
+#         # print(total_inv_volatility)
+#         # print(self.portfolio_weights[assets])
+
+#         total_weights = self.portfolio_weights[assets].sum(axis=1)
+
+#         print(total_weights)
+#         """
+
+#         for i in range(len(df_returns)):
+#             R_n = df_returns[assets].iloc[max(0, i - self.lookback) : i]
+#             inv_volatility = 1.0 / R_n.std()
+#             weights = inv_volatility / inv_volatility.sum()
+#             self.portfolio_weights.loc[df.index[i], assets] = weights
+
+#         """
+#         TODO: Complete Task 2 Above
+#         """
+
+#         self.portfolio_weights.ffill(inplace=True)
+#         self.portfolio_weights.fillna(0, inplace=True)
+
+#     def calculate_portfolio_returns(self):
+#         # Ensure weights are calculated
+#         if not hasattr(self, "portfolio_weights"):
+#             self.calculate_weights()
+
+#         # Calculate the portfolio returns
+#         self.portfolio_returns = df_returns.copy()
+#         assets = df.columns[df.columns != self.exclude]
+#         self.portfolio_returns["Portfolio"] = (
+#             self.portfolio_returns[assets]
+#             .mul(self.portfolio_weights[assets])
+#             .sum(axis=1)
+#         )
+
+#     def get_results(self):
+#         # Ensure portfolio returns are calculated
+#         if not hasattr(self, "portfolio_returns"):
+#             self.calculate_portfolio_returns()
+
+#         return self.portfolio_weights, self.portfolio_returns
+
+class MyPortfolio:
+    """
+    MyPortfolio Strategy: Global Minimum Variance (GMV)
+    Goal: Minimize Volatility to Maximize Sharpe Ratio
+    """
+
+    def __init__(self, price, exclude, lookback=50, gamma=0):
+        # gamma is not used in MinVariance, but kept for compatibility
+        self.price = price
+        self.returns = price.pct_change().fillna(0)
         self.exclude = exclude
         self.lookback = lookback
 
     def calculate_weights(self):
         # Get the assets by excluding the specified column
-        assets = df.columns[df.columns != self.exclude]
+        assets = self.price.columns[self.price.columns != self.exclude]
+        
+        # Initialize portfolio weights dataframe
+        self.portfolio_weights = pd.DataFrame(
+            index=self.price.index, columns=self.price.columns
+        )
 
-        # Calculate the portfolio weights
-        self.portfolio_weights = pd.DataFrame(index=df.index, columns=df.columns)
+        # Loop through each day
+        for i in range(self.lookback, len(self.returns)):
+            # 1. Get the covariance matrix using strictly PAST data
+            # Use data from [i-lookback] to [i-1] to prevent lookahead bias
+            R_n = self.returns[assets].iloc[i - self.lookback : i]
+            Sigma = R_n.cov().values
+            n = len(assets)
 
-        """
-        TODO: Complete Task 2 Below
-        """
+            # 2. Optimization: Minimum Variance
+            with gp.Env(empty=True) as env:
+                env.setParam("OutputFlag", 0)
+                env.start()
+                with gp.Model(env=env, name="min_var") as model:
+                    # Decision Variable: Weights (w)
+                    w = model.addMVar(n, name="w", lb=0.0, ub=1.0)
 
-        """
-        volatility = df_returns[assets].rolling(window=self.lookback).std()
-        inv_volatility = 1.0 / volatility
+                    # Objective: Minimize Portfolio Variance (w @ Sigma @ w)
+                    # Note: No return term (mu) is used here.
+                    portfolio_variance = w @ Sigma @ w
+                    model.setObjective(portfolio_variance, gp.GRB.MINIMIZE)
 
-        total_inv_volatility = inv_volatility.sum(axis=1)
+                    # Constraint: Sum of weights = 1
+                    model.addConstr(w.sum() == 1, "budget")
 
-        self.portfolio_weights[assets] = inv_volatility.div(total_inv_volatility, axis=0)
+                    model.optimize()
 
-        # print(inv_volatility)
-        # print(total_inv_volatility)
-        # print(self.portfolio_weights[assets])
+                    if model.status == gp.GRB.OPTIMAL:
+                        weights = w.X
+                    else:
+                        weights = np.ones(n) / n  # Fallback to Equal Weight
 
-        total_weights = self.portfolio_weights[assets].sum(axis=1)
+            # 3. Assign weights
+            self.portfolio_weights.loc[self.price.index[i], assets] = weights
 
-        print(total_weights)
-        """
-
-        for i in range(len(df_returns)):
-            R_n = df_returns[assets].iloc[max(0, i - self.lookback) : i]
-            inv_volatility = 1.0 / R_n.std()
-            weights = inv_volatility / inv_volatility.sum()
-            self.portfolio_weights.loc[df.index[i], assets] = weights
-
-        """
-        TODO: Complete Task 2 Above
-        """
-
+        # Fill NaNs
         self.portfolio_weights.ffill(inplace=True)
         self.portfolio_weights.fillna(0, inplace=True)
 
     def calculate_portfolio_returns(self):
-        # Ensure weights are calculated
         if not hasattr(self, "portfolio_weights"):
             self.calculate_weights()
-
-        # Calculate the portfolio returns
-        self.portfolio_returns = df_returns.copy()
-        assets = df.columns[df.columns != self.exclude]
+        self.portfolio_returns = self.returns.copy()
+        assets = self.price.columns[self.price.columns != self.exclude]
         self.portfolio_returns["Portfolio"] = (
             self.portfolio_returns[assets]
             .mul(self.portfolio_weights[assets])
@@ -165,12 +243,9 @@ class RiskParityPortfolio:
         )
 
     def get_results(self):
-        # Ensure portfolio returns are calculated
         if not hasattr(self, "portfolio_returns"):
             self.calculate_portfolio_returns()
-
         return self.portfolio_weights, self.portfolio_returns
-
 
 """
 Problem 3:
