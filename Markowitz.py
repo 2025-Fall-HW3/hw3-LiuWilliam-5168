@@ -138,9 +138,14 @@ class RiskParityPortfolio:
         """
 
         for i in range(len(df_returns)):
-            R_n = df_returns[assets].iloc[max(0, i - self.lookback) : i]
-            inv_volatility = 1.0 / R_n.std()
-            weights = inv_volatility / inv_volatility.sum()
+            R_i = df_returns[assets].iloc[max(0, i - self.lookback) : i]
+            inv_volatility = 1.0 / R_i.std()
+            
+            inv_volatility_sum = 0
+            for j in range(1, len(assets)):
+                inv_volatility_sum += inv_volatility[j]
+            
+            weights = inv_volatility / inv_volatility_sum
             self.portfolio_weights.loc[df.index[i], assets] = weights
 
         """
@@ -149,6 +154,8 @@ class RiskParityPortfolio:
 
         self.portfolio_weights.ffill(inplace=True)
         self.portfolio_weights.fillna(0, inplace=True)
+
+        # print("[portfolio_weights]:\n", self.portfolio_weights[assets])
 
     def calculate_portfolio_returns(self):
         # Ensure weights are calculated
@@ -171,81 +178,6 @@ class RiskParityPortfolio:
 
         return self.portfolio_weights, self.portfolio_returns
 
-class MyPortfolio:
-    """
-    MyPortfolio Strategy: Global Minimum Variance (GMV)
-    Goal: Minimize Volatility to Maximize Sharpe Ratio
-    """
-
-    def __init__(self, price, exclude, lookback=50, gamma=0):
-        # gamma is not used in MinVariance, but kept for compatibility
-        self.price = price
-        self.returns = price.pct_change().fillna(0)
-        self.exclude = exclude
-        self.lookback = lookback
-
-    def calculate_weights(self):
-        # Get the assets by excluding the specified column
-        assets = self.price.columns[self.price.columns != self.exclude]
-        
-        # Initialize portfolio weights dataframe
-        self.portfolio_weights = pd.DataFrame(
-            index=self.price.index, columns=self.price.columns
-        )
-
-        # Loop through each day
-        for i in range(self.lookback, len(self.returns)):
-            # 1. Get the covariance matrix using strictly PAST data
-            # Use data from [i-lookback] to [i-1] to prevent lookahead bias
-            R_n = self.returns[assets].iloc[i - self.lookback : i]
-            Sigma = R_n.cov().values
-            n = len(assets)
-
-            # 2. Optimization: Minimum Variance
-            with gp.Env(empty=True) as env:
-                env.setParam("OutputFlag", 0)
-                env.start()
-                with gp.Model(env=env, name="min_var") as model:
-                    # Decision Variable: Weights (w)
-                    w = model.addMVar(n, name="w", lb=0.0, ub=1.0)
-
-                    # Objective: Minimize Portfolio Variance (w @ Sigma @ w)
-                    # Note: No return term (mu) is used here.
-                    portfolio_variance = w @ Sigma @ w
-                    model.setObjective(portfolio_variance, gp.GRB.MINIMIZE)
-
-                    # Constraint: Sum of weights = 1
-                    model.addConstr(w.sum() == 1, "budget")
-
-                    model.optimize()
-
-                    if model.status == gp.GRB.OPTIMAL:
-                        weights = w.X
-                    else:
-                        weights = np.ones(n) / n  # Fallback to Equal Weight
-
-            # 3. Assign weights
-            self.portfolio_weights.loc[self.price.index[i], assets] = weights
-
-        # Fill NaNs
-        self.portfolio_weights.ffill(inplace=True)
-        self.portfolio_weights.fillna(0, inplace=True)
-
-    def calculate_portfolio_returns(self):
-        if not hasattr(self, "portfolio_weights"):
-            self.calculate_weights()
-        self.portfolio_returns = self.returns.copy()
-        assets = self.price.columns[self.price.columns != self.exclude]
-        self.portfolio_returns["Portfolio"] = (
-            self.portfolio_returns[assets]
-            .mul(self.portfolio_weights[assets])
-            .sum(axis=1)
-        )
-
-    def get_results(self):
-        if not hasattr(self, "portfolio_returns"):
-            self.calculate_portfolio_returns()
-        return self.portfolio_weights, self.portfolio_returns
 
 """
 Problem 3:
