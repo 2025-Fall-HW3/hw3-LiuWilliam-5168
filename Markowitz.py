@@ -104,72 +104,72 @@ Implement a risk parity strategy as dataframe "rp". Please do "not" include SPY.
 """
 
 
-# class RiskParityPortfolio:
-#     def __init__(self, exclude, lookback=50):
-#         self.exclude = exclude
-#         self.lookback = lookback
+class RiskParityPortfolio:
+    def __init__(self, exclude, lookback=50):
+        self.exclude = exclude
+        self.lookback = lookback
 
-#     def calculate_weights(self):
-#         # Get the assets by excluding the specified column
-#         assets = df.columns[df.columns != self.exclude]
+    def calculate_weights(self):
+        # Get the assets by excluding the specified column
+        assets = df.columns[df.columns != self.exclude]
 
-#         # Calculate the portfolio weights
-#         self.portfolio_weights = pd.DataFrame(index=df.index, columns=df.columns)
+        # Calculate the portfolio weights
+        self.portfolio_weights = pd.DataFrame(index=df.index, columns=df.columns)
 
-#         """
-#         TODO: Complete Task 2 Below
-#         """
+        """
+        TODO: Complete Task 2 Below
+        """
 
-#         """
-#         volatility = df_returns[assets].rolling(window=self.lookback).std()
-#         inv_volatility = 1.0 / volatility
+        """
+        volatility = df_returns[assets].rolling(window=self.lookback).std()
+        inv_volatility = 1.0 / volatility
 
-#         total_inv_volatility = inv_volatility.sum(axis=1)
+        total_inv_volatility = inv_volatility.sum(axis=1)
 
-#         self.portfolio_weights[assets] = inv_volatility.div(total_inv_volatility, axis=0)
+        self.portfolio_weights[assets] = inv_volatility.div(total_inv_volatility, axis=0)
 
-#         # print(inv_volatility)
-#         # print(total_inv_volatility)
-#         # print(self.portfolio_weights[assets])
+        # print(inv_volatility)
+        # print(total_inv_volatility)
+        # print(self.portfolio_weights[assets])
 
-#         total_weights = self.portfolio_weights[assets].sum(axis=1)
+        total_weights = self.portfolio_weights[assets].sum(axis=1)
 
-#         print(total_weights)
-#         """
+        print(total_weights)
+        """
 
-#         for i in range(len(df_returns)):
-#             R_n = df_returns[assets].iloc[max(0, i - self.lookback) : i]
-#             inv_volatility = 1.0 / R_n.std()
-#             weights = inv_volatility / inv_volatility.sum()
-#             self.portfolio_weights.loc[df.index[i], assets] = weights
+        for i in range(len(df_returns)):
+            R_n = df_returns[assets].iloc[max(0, i - self.lookback) : i]
+            inv_volatility = 1.0 / R_n.std()
+            weights = inv_volatility / inv_volatility.sum()
+            self.portfolio_weights.loc[df.index[i], assets] = weights
 
-#         """
-#         TODO: Complete Task 2 Above
-#         """
+        """
+        TODO: Complete Task 2 Above
+        """
 
-#         self.portfolio_weights.ffill(inplace=True)
-#         self.portfolio_weights.fillna(0, inplace=True)
+        self.portfolio_weights.ffill(inplace=True)
+        self.portfolio_weights.fillna(0, inplace=True)
 
-#     def calculate_portfolio_returns(self):
-#         # Ensure weights are calculated
-#         if not hasattr(self, "portfolio_weights"):
-#             self.calculate_weights()
+    def calculate_portfolio_returns(self):
+        # Ensure weights are calculated
+        if not hasattr(self, "portfolio_weights"):
+            self.calculate_weights()
 
-#         # Calculate the portfolio returns
-#         self.portfolio_returns = df_returns.copy()
-#         assets = df.columns[df.columns != self.exclude]
-#         self.portfolio_returns["Portfolio"] = (
-#             self.portfolio_returns[assets]
-#             .mul(self.portfolio_weights[assets])
-#             .sum(axis=1)
-#         )
+        # Calculate the portfolio returns
+        self.portfolio_returns = df_returns.copy()
+        assets = df.columns[df.columns != self.exclude]
+        self.portfolio_returns["Portfolio"] = (
+            self.portfolio_returns[assets]
+            .mul(self.portfolio_weights[assets])
+            .sum(axis=1)
+        )
 
-#     def get_results(self):
-#         # Ensure portfolio returns are calculated
-#         if not hasattr(self, "portfolio_returns"):
-#             self.calculate_portfolio_returns()
+    def get_results(self):
+        # Ensure portfolio returns are calculated
+        if not hasattr(self, "portfolio_returns"):
+            self.calculate_portfolio_returns()
 
-#         return self.portfolio_weights, self.portfolio_returns
+        return self.portfolio_weights, self.portfolio_returns
 
 class MyPortfolio:
     """
